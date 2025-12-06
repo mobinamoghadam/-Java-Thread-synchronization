@@ -1,0 +1,159 @@
+
+Task 1: 
+
+the program does not meet the "final balance= initial balance" requirement because balance
+is updated by multiple threads (concurrently) using a non-atomic read-modify-write (in both methods deposit and withdraw)
+
+ 
+bugs: 
+	-Missing mutual exclusion: The depositor and withdrawer on the same Account can interleave their updates, 
+		causing lost updates.
+	-No visibility guarantee: Without synchronization, 
+		a thread may not see/read the most recent value written by another thread (stale reads).
+
+fix: 
+	-guard all balance access with a per-account lock
+	-make the methods deposit, withdraw and getBalance and toString synchronized
+		or wrap the updates in synchronized(lock){} block 
+	-keep the existing join() calls so the printing happens after all threads finish.
+
+Task 2:
+
+
+	* The actual order in which threads begin running is decided by the 
+			JVM/OS scheduler (CPU availability, load, JVM/OS policies, and only loosely influenced by priority). 
+			Calling `t.start()` just requests execution; 
+			it does not guarantee when that thread runs.
+	
+	* Therefore, changing the start order cannot ensure consistency. 
+			The inconsistency comes from a data race /non-atomic updates to balance, 
+			which can occur regardless of who starts first.
+	* To preserve consistency must add synchronization around the `balance` updates; start order alone is not a correctness mechanism.
+	
+Task 3:
+
+	+critical section: part of the code that shared resources are being accessed or modified by multiple threads. 
+	
+	+ shared state is 'balance' aka account.balance
+	+ CRITICAL: read–modify–write on shared 'balance':
+	
+		- Acount.deposit(double amount) :
+			
+			balance = balance + amount; //critical (write RMW)
+			
+			
+		- Acount.withdraw(double amount)
+			
+			balance = balance - amount; //critical (write RMW)
+	
+	+ Critical read for visibility
+		---------------------------------------------------------------	
+		- Account.getBalance()
+			return balance;         	// critical (read for visibility)
+			
+		- Account.toString()
+			double b;					// critical (read for visibility)
+			b = balance;
+			
+Task 6:
+
+	result of Task 4:
+		Print initial account balances
+		Account: 1234 	Name: Mike 	Balance:	1000.0
+		Account: 2345 	Name: Adam 	Balance:	2000.0
+		Account: 3456 	Name: Linda 	Balance:	3000.0
+		Account: 4567 	Name: John 	Balance:	4000.0
+		Account: 5678 	Name: Rami 	Balance:	5000.0
+		Account: 6789 	Name: Lee 	Balance:	6000.0
+		Account: 7890 	Name: Tom 	Balance:	7000.0
+		Account: 8901 	Name: Lisa 	Balance:	8000.0
+		Account: 9012 	Name: Sam 	Balance:	9000.0
+		Account: 4321 	Name: Ted 	Balance:	10000.0
+		Depositor and Withdrawal threads have been created
+		Print final account balances after all the child thread terminated...
+		Account: 1234 	Name: Mike 	Balance:	1000.0
+		Account: 2345 	Name: Adam 	Balance:	2000.0
+		Account: 3456 	Name: Linda 	Balance:	3000.0
+		Account: 4567 	Name: John 	Balance:	4000.0
+		Account: 5678 	Name: Rami 	Balance:	5000.0
+		Account: 6789 	Name: Lee 	Balance:	6000.0
+		Account: 7890 	Name: Tom 	Balance:	7000.0
+		Account: 8901 	Name: Lisa 	Balance:	8000.0
+		Account: 9012 	Name: Sam 	Balance:	9000.0
+		Account: 4321 	Name: Ted 	Balance:	10000.0
+		Elapsed time in milliseconds 1707
+		Elapsed time in seconds is 1.707
+		
+	
+	result of Task 5:
+	
+		Print initial account balances
+		Account: 1234 	Name: Mike 	Balance:	1000.0
+		Account: 2345 	Name: Adam 	Balance:	2000.0
+		Account: 3456 	Name: Linda 	Balance:	3000.0
+		Account: 4567 	Name: John 	Balance:	4000.0
+		Account: 5678 	Name: Rami 	Balance:	5000.0
+		Account: 6789 	Name: Lee 	Balance:	6000.0
+		Account: 7890 	Name: Tom 	Balance:	7000.0
+		Account: 8901 	Name: Lisa 	Balance:	8000.0
+		Account: 9012 	Name: Sam 	Balance:	9000.0
+		Account: 4321 	Name: Ted 	Balance:	10000.0
+		Depositor and Withdrawal threads have been created
+		Print final account balances after all the child thread terminated...
+		Account: 1234 	Name: Mike 	Balance:	1000.0
+		Account: 2345 	Name: Adam 	Balance:	2000.0
+		Account: 3456 	Name: Linda 	Balance:	3000.0
+		Account: 4567 	Name: John 	Balance:	4000.0
+		Account: 5678 	Name: Rami 	Balance:	5000.0
+		Account: 6789 	Name: Lee 	Balance:	6000.0
+		Account: 7890 	Name: Tom 	Balance:	7000.0
+		Account: 8901 	Name: Lisa 	Balance:	8000.0
+		Account: 9012 	Name: Sam 	Balance:	9000.0
+		Account: 4321 	Name: Ted 	Balance:	10000.0
+		Elapsed time in milliseconds 2449
+		Elapsed time in seconds is 2.449
+		
+
+	Task 6 --> 
+		both approaches ensure correctness regarding to to 
+		mutual exclusion and visibility
+			Task 4: 
+				Locks the entire method on the account instance (this)
+				
+				pros--> * Simple/safe: one keyword, hard to miss a path. 
+						* Readable: intent is obvious at the method boundary. 
+						* Low overhead per call: a single lock/unlock.
+						* Less chance of misuse: always locks on this (predictable).
+				
+				cons--> * locks the entire method, including non-critical work.
+						* Longer lock hold time: other threads may wait more --> more contention.
+						
+						
+			Task 5:
+				Locks only the minimal critical section 'balance' 
+				via private lock object
+				
+				pros--> * lock only the minimal critical section (e.g., balance update).
+						* Shorter lock hold time: can reduce waiting and improve throughput-> more operation per second. 
+						* use a private lock for better encapsulation and flexibility (better encapsulation than locking on this).
+				
+				cons--> * Easier to misuse: risk of locking the wrong object or missing a code path.
+						* More boilerplate: extra code and potentially more lock/unlock boundaries.
+						* Consistency required: every access must use the same lock.
+						
+						
+	However in my program the 
+	the time for task 4 is "Elapsed time in seconds is 1.707" and task 5 is Elapsed time in seconds is 2.449
+	task 4 (synchronized method) is faster in this setup than synchronized block
+	
+	why?
+	case: 	
+			- each account has only two threads, therefore there isn't much fighting for the locks, shortening the critical section doesn't help much.
+			- task 4 is faster ! 
+					--> Task 5 would be faster if :
+							+ methods have heavy non-critical work / in that case block level can cut lock hold time 
+		
+		
+	
+	
+	
